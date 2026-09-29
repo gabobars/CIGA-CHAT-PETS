@@ -1,1 +1,4189 @@
+let fieldData = {};
+let channelUsername = "";
 
+let settings = {};
+
+let assets = {
+  idle: [],
+  walk: []
+};
+
+let pets = [];
+let userPets = new Map();
+let petOrder = [];
+
+let tintAssignments = new Map();
+
+let nextPetId = 1;
+
+let frameTicker = 0;
+let persistenceTimer = 0;
+
+let initialized = false;
+let restoringState = false;
+
+let activeConfigSignature = "";
+
+let stage =
+  document.getElementById("stage");
+
+let layer =
+  document.getElementById("pet-layer");
+
+
+/* =========================================================
+   DOM SETUP
+   ========================================================= */
+
+if (!stage) {
+  stage =
+    document.createElement("div");
+
+  stage.id =
+    "stage";
+
+  document.body.appendChild(
+    stage
+  );
+}
+
+if (!layer) {
+  layer =
+    document.createElement("div");
+
+  layer.id =
+    "pet-layer";
+
+  stage.appendChild(
+    layer
+  );
+}
+
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+
+function asNumber(
+  value,
+  fallback
+) {
+  const number =
+    Number(value);
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : fallback;
+}
+
+function asBoolean(
+  value,
+  fallback = false
+) {
+  if (
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (
+    typeof value === "string"
+  ) {
+    const normalized =
+      value
+        .trim()
+        .toLowerCase();
+
+    if (
+      normalized === "true" ||
+      normalized === "1"
+    ) {
+      return true;
+    }
+
+    if (
+      normalized === "false" ||
+      normalized === "0" ||
+      normalized === ""
+    ) {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
+function asString(
+  value,
+  fallback = ""
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
+function normalizeImageList(
+  value
+) {
+  if (
+    Array.isArray(value)
+  ) {
+    return value.filter(
+      (url) =>
+        typeof url === "string" &&
+        url.trim()
+    );
+  }
+
+  if (
+    typeof value !== "string"
+  ) {
+    return [];
+  }
+
+  const trimmed =
+    value.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed =
+      JSON.parse(
+        trimmed
+      );
+
+    if (
+      Array.isArray(parsed)
+    ) {
+      return parsed.filter(
+        (url) =>
+          typeof url === "string" &&
+          url.trim()
+      );
+    }
+  } catch (_) {
+    // normal fallback
+  }
+
+  return trimmed
+    .split(
+      /\s*,\s*|\n+/
+    )
+    .map(
+      (url) =>
+        url.trim()
+    )
+    .filter(Boolean);
+}
+
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+
+function parseSettings(
+  data
+) {
+  const d =
+    data || {};
+
+  settings = {
+    idleFrames:
+      normalizeImageList(
+        d.idleFrames
+      ),
+
+    walkFrames:
+      normalizeImageList(
+        d.walkFrames
+      ),
+
+    pixelFont:
+      asString(
+        d.pixelFont,
+        "Silkscreen"
+      ),
+
+    petSize:
+      asNumber(
+        d.petSize,
+        120
+      ),
+
+    spriteScale:
+      Math.max(
+        0.8,
+        asNumber(
+          d.spriteScale,
+          1.40
+        )
+      ),
+
+    groundOffset:
+      asNumber(
+        d.groundOffset,
+        0
+      ),
+
+    maxPets:
+      Math.max(
+        1,
+        Math.min(
+          20,
+          Math.round(
+            asNumber(
+              d.maxPets,
+              20
+            )
+          )
+        )
+      ),
+
+    baseFramesFaceRight:
+      asBoolean(
+        d.baseFramesFaceRight,
+        true
+      ),
+
+    frameMs:
+      Math.max(
+        40,
+        asNumber(
+          d.frameMs,
+          120
+        )
+      ),
+
+    idleMinSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.idleMinSec,
+          1.8
+        )
+      ),
+
+    idleMaxSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.idleMaxSec,
+          4.2
+        )
+      ),
+
+    walkMinSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.walkMinSec,
+          2.4
+        )
+      ),
+
+    walkMaxSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.walkMaxSec,
+          5.8
+        )
+      ),
+
+    minWalkDistancePercent:
+      Math.max(
+        1,
+        asNumber(
+          d.minWalkDistancePercent,
+          15
+        )
+      ),
+
+    maxWalkDistancePercent:
+      Math.max(
+        1,
+        asNumber(
+          d.maxWalkDistancePercent,
+          50
+        )
+      ),
+
+    screenMarginPercent:
+      Math.max(
+        0,
+        asNumber(
+          d.screenMarginPercent,
+          5
+        )
+      ),
+
+    entryEffect:
+      asBoolean(
+        d.entryEffect,
+        true
+      ),
+
+    entryDurationMs:
+      Math.max(
+        0,
+        asNumber(
+          d.entryDurationMs,
+          280
+        )
+      ),
+
+    showMessageBubble:
+      asBoolean(
+        d.showMessageBubble,
+        true
+      ),
+
+    messageDurationSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.messageDurationSec,
+          4.2
+        )
+      ),
+
+    maxMessageCharacters:
+      Math.max(
+        1,
+        Math.round(
+          asNumber(
+            d.maxMessageCharacters,
+            90
+          )
+        )
+      ),
+
+    bubbleMaxWidth:
+      Math.max(
+        100,
+        asNumber(
+          d.bubbleMaxWidth,
+          320
+        )
+      ),
+
+    bubbleFontMin:
+      Math.max(
+        8,
+        asNumber(
+          d.bubbleFontMin,
+          12
+        )
+      ),
+
+    bubbleFontMax:
+      Math.max(
+        8,
+        asNumber(
+          d.bubbleFontMax,
+          19
+        )
+      ),
+
+    nameFontSize:
+      Math.max(
+        10,
+        asNumber(
+          d.nameFontSize,
+          18
+        )
+      ),
+
+    maxUsernameCharacters:
+      Math.max(
+        1,
+        Math.round(
+          asNumber(
+            d.maxUsernameCharacters,
+            18
+          )
+        )
+      ),
+
+    useTwitchNameColor:
+      asBoolean(
+        d.useTwitchNameColor,
+        true
+      ),
+
+    nameColor:
+      asString(
+        d.nameColor,
+        "#FFFFFF"
+      ),
+
+    nameOutlineColor:
+      asString(
+        d.nameOutlineColor,
+        "#000000"
+      ),
+
+    bubbleBackground:
+      asString(
+        d.bubbleBackground,
+        "#F3F0E6"
+      ),
+
+    bubbleBorderColor:
+      asString(
+        d.bubbleBorderColor,
+        "#111111"
+      ),
+
+    tintEnabled:
+      asBoolean(
+        d.tintEnabled,
+        true
+      ),
+
+    tintIntensity:
+      Math.max(
+        0,
+        Math.min(
+          1,
+          asNumber(
+            d.tintIntensity,
+            0.28
+          )
+        )
+      ),
+
+    tint1:
+      asString(
+        d.tint1,
+        "#D5333F"
+      ),
+
+    tint2:
+      asString(
+        d.tint2,
+        "#D38C2E"
+      ),
+
+    tint3:
+      asString(
+        d.tint3,
+        "#6FA64A"
+      ),
+
+    tint4:
+      asString(
+        d.tint4,
+        "#3F94B8"
+      ),
+
+    tint5:
+      asString(
+        d.tint5,
+        "#7354B8"
+      ),
+
+    tint6:
+      asString(
+        d.tint6,
+        "#C45494"
+      ),
+
+    hostEnabled:
+      asBoolean(
+        d.hostEnabled,
+        true
+      ),
+
+    hostName:
+      asString(
+        d.hostName,
+        "HOST"
+      )
+        .trim() ||
+      "HOST",
+
+    hostNameColor:
+      asString(
+        d.hostNameColor,
+        "#FFFFFF"
+      ),
+
+    hostLines: [],
+
+    hostSpeechMinSec:
+      Math.max(
+        1,
+        asNumber(
+          d.hostSpeechMinSec,
+          18
+        )
+      ),
+
+    hostSpeechMaxSec:
+      Math.max(
+        1,
+        asNumber(
+          d.hostSpeechMaxSec,
+          45
+        )
+      ),
+
+    hostBubbleDurationSec:
+      Math.max(
+        0.5,
+        asNumber(
+          d.hostBubbleDurationSec,
+          6
+        )
+      ),
+
+    resetOnRefresh:
+      asBoolean(
+        d.resetOnRefresh,
+        false
+      ),
+
+    ignoreStreamer:
+      asBoolean(
+        d.ignoreStreamer,
+        true
+      )
+  };
+
+  settings.hostLines =
+    asString(
+      d.hostLines,
+      ""
+    )
+      .split("|")
+      .map(
+        (line) =>
+          line.trim()
+      )
+      .filter(Boolean);
+
+  if (
+    settings.idleMaxSec <
+    settings.idleMinSec
+  ) {
+    [
+      settings.idleMinSec,
+      settings.idleMaxSec
+    ] = [
+      settings.idleMaxSec,
+      settings.idleMinSec
+    ];
+  }
+
+  if (
+    settings.walkMaxSec <
+    settings.walkMinSec
+  ) {
+    [
+      settings.walkMinSec,
+      settings.walkMaxSec
+    ] = [
+      settings.walkMaxSec,
+      settings.walkMinSec
+    ];
+  }
+
+  if (
+    settings.hostSpeechMaxSec <
+    settings.hostSpeechMinSec
+  ) {
+    [
+      settings.hostSpeechMinSec,
+      settings.hostSpeechMaxSec
+    ] = [
+      settings.hostSpeechMaxSec,
+      settings.hostSpeechMinSec
+    ];
+  }
+
+  if (
+    settings.maxWalkDistancePercent <
+    settings.minWalkDistancePercent
+  ) {
+    [
+      settings.minWalkDistancePercent,
+      settings.maxWalkDistancePercent
+    ] = [
+      settings.maxWalkDistancePercent,
+      settings.minWalkDistancePercent
+    ];
+  }
+}
+
+
+/* =========================================================
+   ANIMATION
+   ========================================================= */
+
+function buildPingPong(
+  frames
+) {
+  if (
+    !frames.length
+  ) {
+    return [];
+  }
+
+  if (
+    frames.length === 1
+  ) {
+    return [
+      frames[0]
+    ];
+  }
+
+  return [
+    ...frames,
+
+    ...frames
+      .slice(0, -1)
+      .reverse()
+  ];
+}
+
+
+/* =========================================================
+   TEXT
+   ========================================================= */
+
+function sanitizeMessage(
+  value
+) {
+  const raw =
+    asString(
+      value,
+      ""
+    )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  return raw.slice(
+    0,
+    settings.maxMessageCharacters
+  );
+}
+
+function sanitizeUsername(
+  value
+) {
+  const raw =
+    asString(
+      value,
+      "Viewer"
+    )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim() ||
+    "Viewer";
+
+  if (
+    raw.length <=
+    settings.maxUsernameCharacters
+  ) {
+    return raw;
+  }
+
+  return (
+    raw.slice(
+      0,
+      Math.max(
+        1,
+        settings.maxUsernameCharacters - 1
+      )
+    ) +
+    "…"
+  );
+}
+
+
+/* =========================================================
+   NAME READABILITY
+   ========================================================= */
+
+function getReadableNameOutline(
+  color
+) {
+  const match =
+    /^#?([0-9a-f]{6})$/i.exec(
+      color || ""
+    );
+
+  if (!match) {
+    return settings.nameOutlineColor;
+  }
+
+  const value =
+    match[1];
+
+  const r =
+    parseInt(
+      value.slice(0, 2),
+      16
+    );
+
+  const g =
+    parseInt(
+      value.slice(2, 4),
+      16
+    );
+
+  const b =
+    parseInt(
+      value.slice(4, 6),
+      16
+    );
+
+  const luminance =
+    (
+      0.2126 * r +
+      0.7152 * g +
+      0.0722 * b
+    ) / 255;
+
+  return luminance < 0.42
+    ? "#FFFFFF"
+    : "#000000";
+}
+
+
+/* =========================================================
+   HASH
+   ========================================================= */
+
+function hashString(
+  value
+) {
+  let hash =
+    2166136261;
+
+  const text =
+    String(
+      value ||
+      ""
+    );
+
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+    hash ^=
+      text.charCodeAt(i);
+
+    hash =
+      Math.imul(
+        hash,
+        16777619
+      );
+  }
+
+  return hash >>> 0;
+}
+
+
+/* =========================================================
+   TINT
+   ========================================================= */
+
+function getTintKeys() {
+  return [
+    "tint1",
+    "tint2",
+    "tint3",
+    "tint4",
+    "tint5",
+    "tint6"
+  ];
+}
+
+function getTintColors() {
+  const keys =
+    getTintKeys();
+
+  return keys.map(
+    (key) =>
+      settings[key] ||
+      "#FFFFFF"
+  );
+}
+
+function getTintIndexForUser(
+  userId
+) {
+  const normalizedId =
+    String(
+      userId ||
+      "viewer"
+    );
+
+  /*
+   * If this viewer already has a tint
+   * assignment, keep it.
+   */
+  if (
+    tintAssignments.has(
+      normalizedId
+    )
+  ) {
+    return tintAssignments.get(
+      normalizedId
+    );
+  }
+
+  const keys =
+    getTintKeys();
+
+  const preferredIndex =
+    hashString(
+      normalizedId
+    ) %
+    keys.length;
+
+  const usedIndices =
+    new Set(
+      tintAssignments.values()
+    );
+
+  /*
+   * Prefer the deterministic hash result,
+   * but avoid colours already used by active
+   * viewers whenever possible.
+   */
+  for (
+    let offset = 0;
+    offset < keys.length;
+    offset++
+  ) {
+    const index =
+      (
+        preferredIndex +
+        offset
+      ) %
+      keys.length;
+
+    if (
+      !usedIndices.has(
+        index
+      )
+    ) {
+      tintAssignments.set(
+        normalizedId,
+        index
+      );
+
+      return index;
+    }
+  }
+
+  /*
+   * More than six active viewers means
+   * a tint must be reused.
+   */
+  tintAssignments.set(
+    normalizedId,
+    preferredIndex
+  );
+
+  return preferredIndex;
+}
+
+function reserveTintForUser(
+  userId,
+  preferredIndex
+) {
+  const normalizedId =
+    String(
+      userId ||
+      "viewer"
+    );
+
+  const keys =
+    getTintKeys();
+
+  if (
+    tintAssignments.has(
+      normalizedId
+    )
+  ) {
+    return tintAssignments.get(
+      normalizedId
+    );
+  }
+
+  const safeIndex =
+    Number.isInteger(
+      preferredIndex
+    ) &&
+    preferredIndex >= 0 &&
+    preferredIndex <
+      keys.length
+      ? preferredIndex
+      : null;
+
+  const usedIndices =
+    new Set(
+      tintAssignments.values()
+    );
+
+  if (
+    safeIndex !== null &&
+    !usedIndices.has(
+      safeIndex
+    )
+  ) {
+    tintAssignments.set(
+      normalizedId,
+      safeIndex
+    );
+
+    return safeIndex;
+  }
+
+  return getTintIndexForUser(
+    normalizedId
+  );
+}
+
+function pickTintForUser(
+  userId,
+  preferredIndex = null
+) {
+  const keys =
+    getTintKeys();
+
+  const index =
+    reserveTintForUser(
+      userId,
+      preferredIndex
+    );
+
+  return {
+    color:
+      settings[
+        keys[index]
+      ] ||
+      "#FFFFFF",
+
+    index
+  };
+}
+
+function releaseTintForUser(
+  userId
+) {
+  if (
+    !userId
+  ) {
+    return;
+  }
+
+  tintAssignments.delete(
+    String(
+      userId
+    )
+  );
+}
+
+
+/* =========================================================
+   PET CREATION
+   ========================================================= */
+
+function createPetRecord({
+  isHost,
+  userId,
+  username,
+  nameColor,
+  tintColor,
+  tintIndex = null
+}) {
+  const element =
+    document.createElement(
+      "div"
+    );
+
+  element.className =
+    `pet${
+      isHost
+        ? " host"
+        : ""
+    }`;
+
+  const bubble =
+    document.createElement(
+      "div"
+    );
+
+  bubble.className =
+    "pet-bubble";
+
+  bubble.innerHTML =
+    `
+      <span class="bubble-text"></span>
+    `;
+
+  const name =
+    document.createElement(
+      "div"
+    );
+
+  name.className =
+    "pet-name";
+
+  name.textContent =
+    sanitizeUsername(
+      username
+    );
+
+  const core =
+    document.createElement(
+      "div"
+    );
+
+  core.className =
+    "pet-core";
+
+  const spriteBox =
+    document.createElement(
+      "div"
+    );
+
+  spriteBox.className =
+    "sprite-box";
+
+  const sprite =
+    document.createElement(
+      "img"
+    );
+
+  sprite.className =
+    "base-sprite";
+
+  sprite.alt =
+    "";
+
+  sprite.draggable =
+    false;
+
+  const tintLayer =
+    document.createElement(
+      "div"
+    );
+
+  tintLayer.className =
+    "tint-layer";
+
+  spriteBox.appendChild(
+    sprite
+  );
+
+  spriteBox.appendChild(
+    tintLayer
+  );
+
+  core.appendChild(
+    spriteBox
+  );
+
+  element.appendChild(
+    bubble
+  );
+
+  element.appendChild(
+    name
+  );
+
+  element.appendChild(
+    core
+  );
+
+  layer.appendChild(
+    element
+  );
+
+  const spriteSize =
+    settings.petSize *
+    settings.spriteScale;
+
+  element.style.setProperty(
+    "--sprite-size",
+    `${spriteSize}px`
+  );
+
+  element.style.setProperty(
+    "--name-space",
+    `${settings.nameFontSize + 8}px`
+  );
+
+  element.style.setProperty(
+    "--entry-duration",
+    `${settings.entryDurationMs}ms`
+  );
+
+  element.style.bottom =
+    `${settings.groundOffset}px`;
+
+  element.style.left =
+    "0px";
+
+  element.style.transition =
+    "none";
+
+  const pet = {
+    id:
+      String(
+        nextPetId++
+      ),
+
+    isHost:
+      Boolean(
+        isHost
+      ),
+
+    userId:
+      userId || null,
+
+    username:
+      sanitizeUsername(
+        username
+      ),
+
+    nameColor:
+      nameColor ||
+      settings.nameColor,
+
+    tintColor:
+      tintColor ||
+      "#FFFFFF",
+
+    tintIndex:
+      Number.isInteger(
+        tintIndex
+      )
+        ? tintIndex
+        : null,
+
+    element,
+
+    bubble,
+
+    bubbleText:
+      bubble.querySelector(
+        ".bubble-text"
+      ),
+
+    nameElement:
+      name,
+
+    spriteBox,
+
+    sprite,
+
+    tintLayer,
+
+    state:
+      "idle",
+
+    sequence: [],
+
+    frameIndex:
+      0,
+
+    frameElapsed:
+      0,
+
+    direction:
+      1,
+
+    x:
+      0,
+
+    bubbleTimer:
+      null,
+
+    behaviorTimer:
+      null,
+
+    hostSpeechTimer:
+      null,
+
+    cancelled:
+      false,
+
+    leaving:
+      false,
+
+    behaviorPromise:
+      null,
+
+    hostSpeechPromise:
+      null,
+
+    movement:
+      null
+  };
+
+  /*
+   * Name styling.
+   */
+  name.style.color =
+    pet.nameColor;
+
+  name.style.fontSize =
+    `${settings.nameFontSize}px`;
+
+  name.style.fontFamily =
+    `'${settings.pixelFont}', monospace`;
+
+  const outline =
+    getReadableNameOutline(
+      pet.nameColor
+    );
+
+  name.style.setProperty(
+    "--name-outline",
+    outline
+  );
+
+  name.style.webkitTextStroke =
+    `1.25px ${outline}`;
+
+  name.style.paintOrder =
+    "stroke fill";
+
+  name.style.textShadow =
+    `
+      0 2px 2px rgba(0, 0, 0, 0.45),
+      1px 0 rgba(0, 0, 0, 0.35),
+      -1px 0 rgba(0, 0, 0, 0.35)
+    `;
+
+  /*
+   * Bubble styling.
+   */
+  bubble.style.background =
+    settings.bubbleBackground;
+
+  bubble.style.borderColor =
+    settings.bubbleBorderColor;
+
+  bubble.style.fontFamily =
+    `'${settings.pixelFont}', monospace`;
+
+  /*
+   * Tint.
+   */
+  tintLayer.style.backgroundColor =
+    pet.tintColor;
+
+  tintLayer.style.opacity =
+    (
+      !isHost &&
+      settings.tintEnabled
+    )
+      ? String(
+          settings.tintIntensity
+        )
+      : "0";
+
+  tintLayer.style.mixBlendMode =
+    "color";
+
+  return pet;
+}
+
+
+/* =========================================================
+   FRAME RENDER
+   ========================================================= */
+
+function renderFrame(
+  pet
+) {
+  if (
+    !pet.sequence.length
+  ) {
+    return;
+  }
+
+  const src =
+    pet.sequence[
+      pet.frameIndex
+    ] ||
+    pet.sequence[0];
+
+  if (!src) {
+    return;
+  }
+
+  pet.sprite.src =
+    src;
+
+  if (
+    !pet.isHost &&
+    settings.tintEnabled
+  ) {
+    const mask =
+      `url("${src}")`;
+
+    pet.tintLayer.style.webkitMaskImage =
+      mask;
+
+    pet.tintLayer.style.maskImage =
+      mask;
+  }
+}
+
+function advanceFrame(
+  pet
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving ||
+    !pet.sequence.length
+  ) {
+    return;
+  }
+
+  pet.frameIndex =
+    (
+      pet.frameIndex + 1
+    ) %
+    pet.sequence.length;
+
+  renderFrame(
+    pet
+  );
+}
+
+function applyVisualDirection(
+  pet
+) {
+  const movingRight =
+    pet.direction >= 0;
+
+  const shouldFaceRight =
+    settings.baseFramesFaceRight
+      ? movingRight
+      : !movingRight;
+
+  pet.spriteBox.style.transform =
+    shouldFaceRight
+      ? "translateX(-50%) scaleX(1)"
+      : "translateX(-50%) scaleX(-1)";
+}
+
+function setPetState(
+  pet,
+  state
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return;
+  }
+
+  pet.state =
+    state;
+
+  pet.sequence =
+    state === "walk"
+      ? assets.walk
+      : assets.idle;
+
+  pet.frameIndex =
+    0;
+
+  pet.frameElapsed =
+    0;
+
+  renderFrame(
+    pet
+  );
+
+  applyVisualDirection(
+    pet
+  );
+}
+
+
+/* =========================================================
+   MOVEMENT
+   ========================================================= */
+
+function updatePetMovement(
+  pet,
+  now
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving ||
+    !pet.movement
+  ) {
+    return;
+  }
+
+  const movement =
+    pet.movement;
+
+  const elapsed =
+    now -
+    movement.startTime;
+
+  const progress =
+    movement.durationMs <= 0
+      ? 1
+      : Math.min(
+          1,
+          Math.max(
+            0,
+            elapsed /
+            movement.durationMs
+          )
+        );
+
+  pet.x =
+    movement.startX +
+    (
+      movement.targetX -
+      movement.startX
+    ) *
+    progress;
+
+  pet.element.style.left =
+    `${pet.x}px`;
+
+  if (
+    progress >= 1
+  ) {
+    pet.x =
+      movement.targetX;
+
+    pet.element.style.left =
+      `${pet.x}px`;
+
+    pet.movement =
+      null;
+
+    pet.element.classList.remove(
+      "moving"
+    );
+
+    const resolve =
+      movement.resolve;
+
+    if (
+      typeof resolve ===
+      "function"
+    ) {
+      resolve();
+    }
+
+    savePetState();
+  }
+}
+
+function startPetMovement(
+  pet,
+  target,
+  durationMs
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return Promise.resolve();
+  }
+
+  const startX =
+    pet.x;
+
+  const endX =
+    Number(
+      target
+    );
+
+  if (
+    !Number.isFinite(
+      endX
+    )
+  ) {
+    return Promise.resolve();
+  }
+
+  if (
+    Math.abs(
+      endX -
+      startX
+    ) < 1
+  ) {
+    pet.x =
+      endX;
+
+    pet.element.style.left =
+      `${endX}px`;
+
+    return Promise.resolve();
+  }
+
+  if (
+    pet.movement
+  ) {
+    const previousResolve =
+      pet.movement.resolve;
+
+    pet.movement =
+      null;
+
+    if (
+      typeof previousResolve ===
+      "function"
+    ) {
+      previousResolve();
+    }
+  }
+
+  pet.element.classList.remove(
+    "moving"
+  );
+
+  pet.element.style.transition =
+    "none";
+
+  pet.element.style.left =
+    `${startX}px`;
+
+  void pet.element.offsetWidth;
+
+  pet.element.classList.add(
+    "moving"
+  );
+
+  return new Promise(
+    (resolve) => {
+      pet.movement = {
+        startX,
+
+        targetX:
+          endX,
+
+        startTime:
+          performance.now(),
+
+        durationMs:
+          Math.max(
+            0,
+            Number(
+              durationMs
+            ) ||
+            0
+          ),
+
+        resolve
+      };
+    }
+  );
+}
+
+
+/* =========================================================
+   FRAME + MOVEMENT TICKER
+   ========================================================= */
+
+function startFrameTicker() {
+  if (
+    frameTicker
+  ) {
+    cancelAnimationFrame(
+      frameTicker
+    );
+  }
+
+  let lastTime =
+    performance.now();
+
+  function tick(
+    now
+  ) {
+    const delta =
+      Math.min(
+        250,
+        Math.max(
+          0,
+          now -
+          lastTime
+        )
+      );
+
+    lastTime =
+      now;
+
+    if (
+      initialized
+    ) {
+      for (
+        const pet of pets
+      ) {
+        if (
+          pet.cancelled ||
+          pet.leaving
+        ) {
+          continue;
+        }
+
+        updatePetMovement(
+          pet,
+          now
+        );
+
+        if (
+          !pet.sequence.length
+        ) {
+          continue;
+        }
+
+        pet.frameElapsed +=
+          delta;
+
+        while (
+          pet.frameElapsed >=
+          settings.frameMs
+        ) {
+          pet.frameElapsed -=
+            settings.frameMs;
+
+          advanceFrame(
+            pet
+          );
+        }
+      }
+    }
+
+    frameTicker =
+      requestAnimationFrame(
+        tick
+      );
+  }
+
+  frameTicker =
+    requestAnimationFrame(
+      tick
+    );
+}
+
+
+/* =========================================================
+   DURATIONS
+   ========================================================= */
+
+function durationSnappedToCycles(
+  minSec,
+  maxSec,
+  sequenceLength
+) {
+  const cycleMs =
+    Math.max(
+      1,
+      sequenceLength *
+      settings.frameMs
+    );
+
+  const minMs =
+    Math.max(
+      cycleMs,
+      minSec * 1000
+    );
+
+  const maxMs =
+    Math.max(
+      minMs,
+      maxSec * 1000
+    );
+
+  const randomMs =
+    minMs +
+    Math.random() *
+    Math.max(
+      0,
+      maxMs -
+      minMs
+    );
+
+  const cycles =
+    Math.max(
+      1,
+      Math.round(
+        randomMs /
+        cycleMs
+      )
+    );
+
+  return (
+    cycles *
+    cycleMs
+  );
+}
+
+function getCycleDurationMs(
+  state
+) {
+  const sequence =
+    state === "walk"
+      ? assets.walk
+      : assets.idle;
+
+  if (
+    !sequence.length
+  ) {
+    return settings.frameMs;
+  }
+
+  return state === "walk"
+    ? durationSnappedToCycles(
+        settings.walkMinSec,
+        settings.walkMaxSec,
+        sequence.length
+      )
+    : durationSnappedToCycles(
+        settings.idleMinSec,
+        settings.idleMaxSec,
+        sequence.length
+      );
+}
+
+
+/* =========================================================
+   MOVEMENT BOUNDS
+   ========================================================= */
+
+function getHorizontalBounds() {
+  const width =
+    stage.clientWidth ||
+    window.innerWidth ||
+    1920;
+
+  const margin =
+    width *
+    (
+      settings.screenMarginPercent /
+      100
+    );
+
+  const spriteSize =
+    settings.petSize *
+    settings.spriteScale;
+
+  const halfPet =
+    spriteSize /
+    2;
+
+  const minX =
+    Math.max(
+      halfPet +
+      margin,
+      0
+    );
+
+  const maxX =
+    Math.max(
+      minX,
+      width -
+      halfPet -
+      margin
+    );
+
+  return {
+    minX,
+    maxX,
+    width
+  };
+}
+
+function chooseWalkTarget(
+  pet
+) {
+  const {
+    minX,
+    maxX,
+    width
+  } =
+    getHorizontalBounds();
+
+  const range =
+    Math.max(
+      1,
+      maxX -
+      minX
+    );
+
+  const minDistance =
+    Math.min(
+      range,
+      range *
+      settings.minWalkDistancePercent /
+      100
+    );
+
+  const maxDistance =
+    Math.min(
+      range,
+      range *
+      settings.maxWalkDistancePercent /
+      100
+    );
+
+  const distance =
+    minDistance +
+    Math.random() *
+    Math.max(
+      0,
+      maxDistance -
+      minDistance
+    );
+
+  const current =
+    Math.min(
+      maxX,
+      Math.max(
+        minX,
+        pet.x
+      )
+    );
+
+  let target;
+
+  if (
+    current <=
+    minX + 1
+  ) {
+    target =
+      Math.min(
+        maxX,
+        current +
+        distance
+      );
+  } else if (
+    current >=
+    maxX - 1
+  ) {
+    target =
+      Math.max(
+        minX,
+        current -
+        distance
+      );
+  } else {
+    const goRight =
+      Math.random() >=
+      0.5;
+
+    target =
+      goRight
+        ? current +
+          distance
+        : current -
+          distance;
+
+    target =
+      Math.min(
+        maxX,
+        Math.max(
+          minX,
+          target
+        )
+      );
+  }
+
+  if (
+    Math.abs(
+      target -
+      current
+    ) < 1 &&
+    range > 1
+  ) {
+    target =
+      current <
+      width / 2
+        ? maxX
+        : minX;
+  }
+
+  return target;
+}
+
+
+/* =========================================================
+   SLEEP
+   ========================================================= */
+
+function sleepFor(
+  pet,
+  milliseconds,
+  timerKey = "behaviorTimer"
+) {
+  return new Promise(
+    (resolve) => {
+      if (
+        pet.cancelled ||
+        pet.leaving
+      ) {
+        resolve();
+
+        return;
+      }
+
+      if (
+        pet[timerKey]
+      ) {
+        clearTimeout(
+          pet[timerKey]
+        );
+
+        pet[timerKey] =
+          null;
+      }
+
+      pet[timerKey] =
+        setTimeout(
+          () => {
+            pet[timerKey] =
+              null;
+
+            resolve();
+          },
+          Math.max(
+            0,
+            milliseconds
+          )
+        );
+    }
+  );
+}
+
+
+/* =========================================================
+   IDLE
+   ========================================================= */
+
+async function runIdlePhase(
+  pet
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving ||
+    !assets.idle.length
+  ) {
+    return;
+  }
+
+  setPetState(
+    pet,
+    "idle"
+  );
+
+  await sleepFor(
+    pet,
+    getCycleDurationMs(
+      "idle"
+    ),
+    "behaviorTimer"
+  );
+}
+
+
+/* =========================================================
+   WALK
+   ========================================================= */
+
+async function runWalkPhase(
+  pet
+) {
+  if (
+    pet.cancelled ||
+    pet.leaving ||
+    !assets.walk.length
+  ) {
+    return;
+  }
+
+  const target =
+    chooseWalkTarget(
+      pet
+    );
+
+  if (
+    Math.abs(
+      target -
+      pet.x
+    ) < 1
+  ) {
+    setPetState(
+      pet,
+      "walk"
+    );
+
+    await sleepFor(
+      pet,
+      getCycleDurationMs(
+        "walk"
+      ),
+      "behaviorTimer"
+    );
+
+    return;
+  }
+
+  const durationMs =
+    getCycleDurationMs(
+      "walk"
+    );
+
+  pet.direction =
+    target >= pet.x
+      ? 1
+      : -1;
+
+  setPetState(
+    pet,
+    "walk"
+  );
+
+  applyVisualDirection(
+    pet
+  );
+
+  if (
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return;
+  }
+
+  await startPetMovement(
+    pet,
+    target,
+    durationMs
+  );
+
+  if (
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return;
+  }
+
+  pet.x =
+    target;
+
+  pet.element.style.left =
+    `${target}px`;
+
+  pet.element.style.transition =
+    "none";
+
+  pet.element.classList.remove(
+    "moving"
+  );
+
+  savePetState();
+}
+
+
+/* =========================================================
+   PET BEHAVIOUR
+   ========================================================= */
+
+async function runPetBehavior(
+  pet
+) {
+  if (
+    pet.behaviorPromise
+  ) {
+    return pet.behaviorPromise;
+  }
+
+  pet.behaviorPromise =
+    (async () => {
+      while (
+        !pet.cancelled &&
+        !pet.leaving
+      ) {
+        if (
+          assets.idle.length
+        ) {
+          await runIdlePhase(
+            pet
+          );
+        }
+
+        if (
+          pet.cancelled ||
+          pet.leaving
+        ) {
+          break;
+        }
+
+        if (
+          assets.walk.length
+        ) {
+          await runWalkPhase(
+            pet
+          );
+        } else {
+          await sleepFor(
+            pet,
+            settings.frameMs * 2,
+            "behaviorTimer"
+          );
+        }
+      }
+    })().catch(
+      (error) => {
+        console.error(
+          "Chat Pets // behaviour error:",
+          error
+        );
+      }
+    );
+
+  return pet.behaviorPromise;
+}
+
+
+/* =========================================================
+   BUBBLE
+   ========================================================= */
+
+function calculateBubbleWidth(
+  text
+) {
+  const maxWidth =
+    Math.min(
+      settings.bubbleMaxWidth,
+      Math.max(
+        140,
+        (
+          stage.clientWidth ||
+          window.innerWidth
+        ) * 0.32
+      )
+    );
+
+  const canvas =
+    calculateBubbleWidth.canvas ||
+    (
+      calculateBubbleWidth.canvas =
+        document.createElement(
+          "canvas"
+        )
+    );
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  if (!ctx) {
+    return 220;
+  }
+
+  ctx.font =
+    `
+      ${settings.bubbleFontMax}px
+      '${settings.pixelFont}',
+      monospace
+    `;
+
+  const fullWidth =
+    ctx.measureText(
+      text
+    ).width +
+    36;
+
+  if (
+    fullWidth <=
+    maxWidth
+  ) {
+    return Math.max(
+      70,
+      fullWidth
+    );
+  }
+
+  const words =
+    text.split(" ");
+
+  let line = "";
+  let widest = 0;
+
+  for (
+    const word of words
+  ) {
+    const candidate =
+      line
+        ? `${line} ${word}`
+        : word;
+
+    const candidateWidth =
+      ctx.measureText(
+        candidate
+      ).width;
+
+    if (
+      candidateWidth >
+        maxWidth - 36 &&
+      line
+    ) {
+      widest =
+        Math.max(
+          widest,
+          ctx.measureText(
+            line
+          ).width
+        );
+
+      line =
+        word;
+    } else {
+      line =
+        candidate;
+    }
+  }
+
+  widest =
+    Math.max(
+      widest,
+      ctx.measureText(
+        line
+      ).width
+    );
+
+  return Math.max(
+    70,
+    Math.min(
+      maxWidth,
+      widest + 36
+    )
+  );
+}
+
+function showBubble(
+  pet,
+  rawText,
+  durationSec
+) {
+  if (
+    !pet ||
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return;
+  }
+
+  const text =
+    sanitizeMessage(
+      rawText
+    );
+
+  if (!text) {
+    return;
+  }
+
+  if (
+    pet.bubbleTimer
+  ) {
+    clearTimeout(
+      pet.bubbleTimer
+    );
+  }
+
+  const ratio =
+    Math.min(
+      1,
+      text.length /
+      Math.max(
+        20,
+        settings.maxMessageCharacters
+      )
+    );
+
+  const fontSize =
+    Math.round(
+      settings.bubbleFontMax -
+      (
+        settings.bubbleFontMax -
+        settings.bubbleFontMin
+      ) *
+      ratio
+    );
+
+  pet.bubbleText.textContent =
+    text;
+
+  pet.bubbleText.style.fontSize =
+    `${fontSize}px`;
+
+  pet.bubble.style.width =
+    `${calculateBubbleWidth(text)}px`;
+
+  pet.bubble.classList.add(
+    "visible"
+  );
+
+  pet.bubbleTimer =
+    setTimeout(
+      () => {
+        pet.bubble.classList.remove(
+          "visible"
+        );
+
+        pet.bubbleTimer =
+          null;
+      },
+      Math.max(
+        0.5,
+        durationSec
+      ) * 1000
+    );
+}
+
+
+/* =========================================================
+   PERSISTENCE
+   ========================================================= */
+
+function stableSerialize(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return String(
+      value
+    );
+  }
+
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
+    return (
+      "[" +
+      value
+        .map(
+          (entry) =>
+            stableSerialize(
+              entry
+            )
+        )
+        .join(",") +
+      "]"
+    );
+  }
+
+  if (
+    typeof value === "object"
+  ) {
+    return (
+      "{" +
+      Object.keys(
+        value
+      )
+        .sort()
+        .map(
+          (key) =>
+            JSON.stringify(
+              key
+            ) +
+            ":" +
+            stableSerialize(
+              value[key]
+            )
+        )
+        .join(",") +
+      "}"
+    );
+  }
+
+  return JSON.stringify(
+    value
+  );
+}
+
+function getConfigSignature(
+  data
+) {
+  return stableSerialize(
+    data || {}
+  );
+}
+
+function getStorageKey() {
+  const channel =
+    channelUsername ||
+    "unknown";
+
+  return (
+    "chat-pets-state-v2:" +
+    channel
+  );
+}
+
+function getCurrentPetX(
+  pet
+) {
+  if (
+    !pet ||
+    !pet.element
+  ) {
+    return pet?.x || 0;
+  }
+
+  if (
+    pet.movement
+  ) {
+    return pet.x;
+  }
+
+  const rect =
+    pet.element.getBoundingClientRect();
+
+  const stageRect =
+    stage.getBoundingClientRect();
+
+  return (
+    rect.left -
+    stageRect.left +
+    rect.width / 2
+  );
+}
+
+function captureCurrentPetState() {
+  return pets
+    .filter(
+      (pet) =>
+        !pet.cancelled &&
+        !pet.leaving
+    )
+    .map(
+      (pet) => ({
+        isHost:
+          pet.isHost,
+
+        userId:
+          pet.userId,
+
+        username:
+          pet.username,
+
+        nameColor:
+          pet.nameColor,
+
+        tintIndex:
+          pet.tintIndex,
+
+        x:
+          getCurrentPetX(
+            pet
+          ),
+
+        direction:
+          pet.direction
+      })
+    );
+}
+
+function savePetState() {
+  if (
+    restoringState
+  ) {
+    return;
+  }
+
+  try {
+    const state = {
+      version:
+        2,
+
+      configSignature:
+        activeConfigSignature ||
+        getConfigSignature(
+          fieldData
+        ),
+
+      hostEnabled:
+        settings.hostEnabled,
+
+      pets:
+        captureCurrentPetState()
+    };
+
+    const serialized =
+      JSON.stringify(
+        state
+      );
+
+    try {
+      localStorage.setItem(
+        getStorageKey(),
+        serialized
+      );
+    } catch (_) {
+      try {
+        sessionStorage.setItem(
+          getStorageKey(),
+          serialized
+        );
+      } catch (__) {
+        // ignore storage failure
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Chat Pets // state save failed:",
+      error
+    );
+  }
+}
+
+function clearSavedPetState() {
+  try {
+    localStorage.removeItem(
+      getStorageKey()
+    );
+  } catch (_) {
+    // ignore
+  }
+
+  try {
+    sessionStorage.removeItem(
+      getStorageKey()
+    );
+  } catch (_) {
+    // ignore
+  }
+
+  try {
+    sessionStorage.removeItem(
+      "chat-pets-state-v1:" +
+      (
+        channelUsername ||
+        "unknown"
+      )
+    );
+  } catch (_) {
+    // ignore
+  }
+}
+
+function loadSavedPetState() {
+  let raw =
+    null;
+
+  try {
+    raw =
+      localStorage.getItem(
+        getStorageKey()
+      );
+  } catch (_) {
+    // fallback below
+  }
+
+  if (!raw) {
+    try {
+      raw =
+        sessionStorage.getItem(
+          getStorageKey()
+        );
+    } catch (_) {
+      raw =
+        null;
+    }
+  }
+
+  /*
+   * Backward compatibility.
+   */
+  if (!raw) {
+    try {
+      const oldRaw =
+        sessionStorage.getItem(
+          "chat-pets-state-v1:" +
+          (
+            channelUsername ||
+            "unknown"
+          )
+        );
+
+      if (oldRaw) {
+        const oldState =
+          JSON.parse(
+            oldRaw
+          );
+
+        if (
+          oldState &&
+          Array.isArray(
+            oldState.pets
+          )
+        ) {
+          return {
+            version:
+              1,
+
+            configSignature:
+              null,
+
+            hostEnabled:
+              oldState.pets.some(
+                (pet) =>
+                  pet.isHost
+              ),
+
+            pets:
+              oldState.pets
+          };
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    return null;
+  }
+
+  try {
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+    if (
+      !parsed ||
+      !Array.isArray(
+        parsed.pets
+      )
+    ) {
+      return null;
+    }
+
+    return {
+      version:
+        parsed.version || 2,
+
+      configSignature:
+        parsed.configSignature ||
+        null,
+
+      hostEnabled:
+        parsed.hostEnabled !== false,
+
+      pets:
+        parsed.pets
+    };
+  } catch (error) {
+    console.warn(
+      "Chat Pets // state load failed:",
+      error
+    );
+
+    return null;
+  }
+}
+
+function startPersistence() {
+  if (
+    persistenceTimer
+  ) {
+    clearInterval(
+      persistenceTimer
+    );
+  }
+
+  persistenceTimer =
+    setInterval(
+      savePetState,
+      1000
+    );
+}
+
+
+/* =========================================================
+   REMOVE / LIMIT
+   ========================================================= */
+
+function clearPetTimers(
+  pet
+) {
+  if (
+    pet.behaviorTimer
+  ) {
+    clearTimeout(
+      pet.behaviorTimer
+    );
+
+    pet.behaviorTimer =
+      null;
+  }
+
+  if (
+    pet.hostSpeechTimer
+  ) {
+    clearTimeout(
+      pet.hostSpeechTimer
+    );
+
+    pet.hostSpeechTimer =
+      null;
+  }
+
+  if (
+    pet.bubbleTimer
+  ) {
+    clearTimeout(
+      pet.bubbleTimer
+    );
+
+    pet.bubbleTimer =
+      null;
+  }
+
+  if (
+    pet.movement
+  ) {
+    const resolve =
+      pet.movement.resolve;
+
+    pet.movement =
+      null;
+
+    if (
+      typeof resolve ===
+      "function"
+    ) {
+      resolve();
+    }
+  }
+}
+
+function removePet(
+  pet
+) {
+  if (
+    !pet ||
+    pet.cancelled
+  ) {
+    return;
+  }
+
+  pet.cancelled =
+    true;
+
+  clearPetTimers(
+    pet
+  );
+
+  pet.element.classList.remove(
+    "moving"
+  );
+
+  pet.element.classList.remove(
+    "entering"
+  );
+
+  pet.element.classList.remove(
+    "leaving"
+  );
+
+  pet.element.style.transition =
+    "none";
+
+  pet.element.remove();
+
+  pets =
+    pets.filter(
+      (entry) =>
+        entry !== pet
+    );
+
+  if (
+    !pet.isHost &&
+    pet.userId
+  ) {
+    userPets.delete(
+      pet.userId
+    );
+
+    petOrder =
+      petOrder.filter(
+        (id) =>
+          id !== pet.userId
+      );
+
+    releaseTintForUser(
+      pet.userId
+    );
+  }
+
+  updatePetDepth();
+
+  savePetState();
+}
+
+function playLeaveAnimation(
+  pet
+) {
+  if (
+    !pet ||
+    pet.cancelled ||
+    pet.leaving
+  ) {
+    return;
+  }
+
+  pet.leaving =
+    true;
+
+  clearPetTimers(
+    pet
+  );
+
+  pet.element.classList.remove(
+    "entering"
+  );
+
+  pet.element.classList.remove(
+    "moving"
+  );
+
+  pet.element.style.transition =
+    "none";
+
+  if (
+    !settings.entryEffect ||
+    settings.entryDurationMs <= 0
+  ) {
+    removePet(
+      pet
+    );
+
+    return;
+  }
+
+  pet.element.style.setProperty(
+    "--entry-duration",
+    `${settings.entryDurationMs}ms`
+  );
+
+  pet.element.classList.add(
+    "leaving"
+  );
+
+  setTimeout(
+    () => {
+      if (
+        !pet.cancelled
+      ) {
+        removePet(
+          pet
+        );
+      }
+    },
+    settings.entryDurationMs
+  );
+}
+
+function updatePetDepth() {
+  for (
+    const pet of pets
+  ) {
+    if (
+      pet.cancelled
+    ) {
+      continue;
+    }
+
+    if (
+      pet.isHost
+    ) {
+      pet.element.style.zIndex =
+        "1000";
+
+      continue;
+    }
+
+    const index =
+      petOrder.indexOf(
+        pet.userId
+      );
+
+    pet.element.style.zIndex =
+      String(
+        10 +
+        Math.max(
+          0,
+          index
+        )
+      );
+  }
+}
+
+function enforcePetLimit() {
+  while (
+    petOrder.length >
+    settings.maxPets
+  ) {
+    const oldestUserId =
+      petOrder.shift();
+
+    if (!oldestUserId) {
+      break;
+    }
+
+    const oldestPet =
+      userPets.get(
+        oldestUserId
+      );
+
+    if (
+      oldestPet
+    ) {
+      removePet(
+        oldestPet
+      );
+    }
+  }
+}
+
+
+/* =========================================================
+   HOST
+   ========================================================= */
+
+function createHostPet() {
+  if (
+    !settings.hostEnabled
+  ) {
+    return null;
+  }
+
+  const existing =
+    pets.find(
+      (pet) =>
+        pet.isHost &&
+        !pet.cancelled &&
+        !pet.leaving
+    );
+
+  if (
+    existing
+  ) {
+    return existing;
+  }
+
+  const {
+    width
+  } =
+    getHorizontalBounds();
+
+  return spawnPet({
+    isHost:
+      true,
+
+    userId:
+      "__host__",
+
+    username:
+      settings.hostName,
+
+    nameColor:
+      settings.hostNameColor,
+
+    x:
+      width / 2
+  });
+}
+
+async function runHostSpeechLoop(
+  host
+) {
+  if (
+    !host ||
+    host.cancelled ||
+    host.leaving ||
+    !settings.hostLines.length
+  ) {
+    return;
+  }
+
+  host.hostSpeechPromise =
+    (async () => {
+      while (
+        !host.cancelled &&
+        !host.leaving
+      ) {
+        const minMs =
+          settings.hostSpeechMinSec *
+          1000;
+
+        const maxMs =
+          Math.max(
+            minMs,
+            settings.hostSpeechMaxSec *
+            1000
+          );
+
+        const delay =
+          minMs +
+          Math.random() *
+          (
+            maxMs -
+            minMs
+          );
+
+        await sleepFor(
+          host,
+          delay,
+          "hostSpeechTimer"
+        );
+
+        if (
+          host.cancelled ||
+          host.leaving
+        ) {
+          break;
+        }
+
+        if (
+          !settings.hostLines.length
+        ) {
+          continue;
+        }
+
+        const line =
+          settings.hostLines[
+            Math.floor(
+              Math.random() *
+              settings.hostLines.length
+            )
+          ];
+
+        if (
+          settings.showMessageBubble
+        ) {
+          showBubble(
+            host,
+            line,
+            settings.hostBubbleDurationSec
+          );
+        }
+      }
+    })().catch(
+      (error) => {
+        console.error(
+          "Chat Pets // host speech error:",
+          error
+        );
+      }
+    );
+}
+
+
+/* =========================================================
+   SPAWN
+   ========================================================= */
+
+function spawnPet({
+  isHost = false,
+  userId = null,
+  username = "Viewer",
+  nameColor = null,
+  firstMessage = "",
+  x = null,
+  direction = null,
+  tintIndex = null,
+  restored = false,
+  startBehavior = true
+}) {
+  let tintColor =
+    "#FFFFFF";
+
+  let resolvedTintIndex =
+    null;
+
+  if (
+    !isHost
+  ) {
+    const tint =
+      pickTintForUser(
+        userId ||
+        username,
+        tintIndex
+      );
+
+    tintColor =
+      tint.color;
+
+    resolvedTintIndex =
+      tint.index;
+  }
+
+  const pet =
+    createPetRecord({
+      isHost,
+
+      userId,
+
+      username:
+        isHost
+          ? settings.hostName
+          : username,
+
+      nameColor:
+        isHost
+          ? settings.hostNameColor
+          : (
+              nameColor ||
+              settings.nameColor
+            ),
+
+      tintColor,
+
+      tintIndex:
+        resolvedTintIndex
+    });
+
+  pet.sequence =
+    assets.idle.length
+      ? assets.idle
+      : assets.walk;
+
+  pet.frameIndex =
+    0;
+
+  pet.frameElapsed =
+    0;
+
+  renderFrame(
+    pet
+  );
+
+  const {
+    minX,
+    maxX,
+    width
+  } =
+    getHorizontalBounds();
+
+  if (
+    x === null ||
+    !Number.isFinite(
+      Number(x)
+    )
+  ) {
+    pet.x =
+      isHost
+        ? width / 2
+        : (
+            minX +
+            Math.random() *
+            Math.max(
+              0,
+              maxX -
+              minX
+            )
+          );
+  } else {
+    pet.x =
+      Math.min(
+        maxX,
+        Math.max(
+          minX,
+          Number(x)
+        )
+      );
+  }
+
+  pet.element.style.left =
+    `${pet.x}px`;
+
+  pet.element.style.bottom =
+    `${settings.groundOffset}px`;
+
+  pet.direction =
+    direction === 1 ||
+    direction === -1
+      ? direction
+      : (
+          Math.random() >=
+          0.5
+            ? 1
+            : -1
+        );
+
+  applyVisualDirection(
+    pet
+  );
+
+  pets.push(
+    pet
+  );
+
+  updatePetDepth();
+
+  /*
+   * Only new pets receive the entry animation.
+   */
+  if (
+    settings.entryEffect &&
+    !restored &&
+    settings.entryDurationMs > 0
+  ) {
+    pet.element.classList.add(
+      "entering"
+    );
+
+    setTimeout(
+      () => {
+        if (
+          !pet.cancelled &&
+          !pet.leaving
+        ) {
+          pet.element.classList.remove(
+            "entering"
+          );
+        }
+      },
+      settings.entryDurationMs
+    );
+  }
+
+  if (
+    isHost
+  ) {
+    if (
+      startBehavior
+    ) {
+      runPetBehavior(
+        pet
+      );
+    }
+
+    return pet;
+  }
+
+  if (
+    userId
+  ) {
+    userPets.set(
+      userId,
+      pet
+    );
+
+    petOrder.push(
+      userId
+    );
+
+    enforcePetLimit();
+
+    if (
+      !restored &&
+      settings.showMessageBubble &&
+      firstMessage
+    ) {
+      showBubble(
+        pet,
+        firstMessage,
+        settings.messageDurationSec
+      );
+    }
+
+    if (
+      startBehavior
+    ) {
+      runPetBehavior(
+        pet
+      );
+    }
+  }
+
+  if (
+    !restoringState
+  ) {
+    savePetState();
+  }
+
+  return pet;
+}
+
+
+/* =========================================================
+   RESTORE
+   ========================================================= */
+
+function restorePetsFromState(
+  savedPets,
+  previousHostEnabled,
+  hostShouldLeave = false
+) {
+  if (
+    !Array.isArray(
+      savedPets
+    ) ||
+    !savedPets.length
+  ) {
+    return false;
+  }
+
+  restoringState =
+    true;
+
+  let restoredAnything =
+    false;
+
+  try {
+    const savedHost =
+      savedPets.find(
+        (entry) =>
+          entry.isHost
+      );
+
+    /*
+     * Host remains enabled:
+     * restore current Host settings at
+     * the saved position.
+     */
+    if (
+      settings.hostEnabled &&
+      savedHost
+    ) {
+      spawnPet({
+        isHost:
+          true,
+
+        userId:
+          "__host__",
+
+        username:
+          settings.hostName,
+
+        nameColor:
+          settings.hostNameColor,
+
+        x:
+          savedHost.x,
+
+        direction:
+          savedHost.direction,
+
+        restored:
+          true,
+
+        startBehavior:
+          true
+      });
+
+      restoredAnything =
+        true;
+    }
+
+    /*
+     * Host was disabled:
+     * recreate it temporarily only to
+     * play the leave animation.
+     */
+    if (
+      !settings.hostEnabled &&
+      previousHostEnabled &&
+      hostShouldLeave &&
+      savedHost
+    ) {
+      const leavingHost =
+        spawnPet({
+          isHost:
+            true,
+
+          userId:
+            "__host__",
+
+          username:
+            savedHost.username ||
+            "HOST",
+
+          nameColor:
+            savedHost.nameColor ||
+            settings.nameColor,
+
+          x:
+            savedHost.x,
+
+          direction:
+            savedHost.direction,
+
+          restored:
+            true,
+
+          startBehavior:
+            false
+        });
+
+      playLeaveAnimation(
+        leavingHost
+      );
+
+      restoredAnything =
+        true;
+    }
+
+    /*
+     * Restore viewer pets with their
+     * previous positions and tint indices.
+     */
+    for (
+      const entry of savedPets
+    ) {
+      if (
+        entry.isHost
+      ) {
+        continue;
+      }
+
+      if (
+        !entry.userId
+      ) {
+        continue;
+      }
+
+      spawnPet({
+        isHost:
+          false,
+
+        userId:
+          entry.userId,
+
+        username:
+          entry.username ||
+          "Viewer",
+
+        nameColor:
+          entry.nameColor ||
+          settings.nameColor,
+
+        tintIndex:
+          Number.isInteger(
+            entry.tintIndex
+          )
+            ? entry.tintIndex
+            : null,
+
+        x:
+          entry.x,
+
+        direction:
+          entry.direction,
+
+        restored:
+          true,
+
+        startBehavior:
+          true
+      });
+
+      restoredAnything =
+        true;
+
+      if (
+        petOrder.length >=
+        settings.maxPets
+      ) {
+        break;
+      }
+    }
+  } finally {
+    restoringState =
+      false;
+  }
+
+  return restoredAnything;
+}
+
+function restoreSavedPets(
+  configChanged = false
+) {
+  const saved =
+    loadSavedPetState();
+
+  if (
+    !saved ||
+    !saved.pets ||
+    !saved.pets.length
+  ) {
+    return false;
+  }
+
+  /*
+   * Reset Pets on Refresh is ignored when
+   * the configuration itself changed.
+   *
+   * That is a settings update, not a
+   * true refresh.
+   */
+  if (
+    settings.resetOnRefresh &&
+    !configChanged
+  ) {
+    return false;
+  }
+
+  const previousHostEnabled =
+    saved.hostEnabled !== false;
+
+  return restorePetsFromState(
+    saved.pets,
+    previousHostEnabled,
+    configChanged
+  );
+}
+
+
+/* =========================================================
+   CHAT
+   ========================================================= */
+
+function extractChatMessage(
+  obj
+) {
+  const data =
+    obj?.detail?.event?.data ||
+    obj?.detail?.event ||
+    obj?.data ||
+    obj ||
+    {};
+
+  const messageData =
+    data?.data ||
+    data;
+
+  const userId =
+    asString(
+      messageData.userId ??
+      messageData.userID ??
+      messageData.uid ??
+      messageData.tags?.userId,
+      ""
+    ).trim();
+
+  const displayName =
+    asString(
+      messageData.displayName ??
+      messageData.username ??
+      messageData.name ??
+      messageData.nick,
+      "Viewer"
+    ).trim();
+
+  const text =
+    asString(
+      messageData.text ??
+      messageData.message ??
+      messageData.displayMessage ??
+      messageData.messageData?.text ??
+      messageData.snippet?.displayMessage,
+      ""
+    );
+
+  const color =
+    asString(
+      messageData.displayColor ??
+      messageData.displayColour ??
+      messageData.tags?.color ??
+      messageData.color,
+      ""
+    ).trim();
+
+  return {
+    userId:
+      userId ||
+      `name:${displayName.toLowerCase()}`,
+
+    displayName:
+      displayName ||
+      "Viewer",
+
+    text,
+
+    color
+  };
+}
+
+function handleChatMessage(
+  obj
+) {
+  const message =
+    extractChatMessage(
+      obj
+    );
+
+  const normalizedName =
+    message.displayName
+      .toLowerCase();
+
+  if (
+    settings.ignoreStreamer &&
+    channelUsername &&
+    normalizedName ===
+      channelUsername.toLowerCase()
+  ) {
+    return;
+  }
+
+  const text =
+    sanitizeMessage(
+      message.text
+    );
+
+  if (!text) {
+    return;
+  }
+
+  const existingPet =
+    userPets.get(
+      message.userId
+    );
+
+  if (
+    existingPet &&
+    !existingPet.cancelled &&
+    !existingPet.leaving
+  ) {
+    if (
+      settings.showMessageBubble
+    ) {
+      showBubble(
+        existingPet,
+        text,
+        settings.messageDurationSec
+      );
+    }
+
+    savePetState();
+
+    return;
+  }
+
+  const twitchColor =
+    settings.useTwitchNameColor &&
+    /^#[0-9a-f]{6}$/i.test(
+      message.color
+    )
+      ? message.color
+      : settings.nameColor;
+
+  spawnPet({
+    isHost:
+      false,
+
+    userId:
+      message.userId,
+
+    username:
+      message.displayName,
+
+    nameColor:
+      twitchColor,
+
+    firstMessage:
+      text
+  });
+}
+
+
+/* =========================================================
+   PRELOAD
+   ========================================================= */
+
+function preloadImage(
+  url
+) {
+  return new Promise(
+    (resolve) => {
+      const img =
+        new Image();
+
+      let finished =
+        false;
+
+      function finish(
+        value
+      ) {
+        if (
+          finished
+        ) {
+          return;
+        }
+
+        finished =
+          true;
+
+        resolve(
+          value
+        );
+      }
+
+      img.onload =
+        () =>
+          finish(url);
+
+      img.onerror =
+        () =>
+          finish(null);
+
+      setTimeout(
+        () =>
+          finish(null),
+        10000
+      );
+
+      img.src =
+        url;
+    }
+  );
+}
+
+async function preloadAssets() {
+  const idleUnique =
+    [
+      ...new Set(
+        settings.idleFrames
+      )
+    ];
+
+  const walkUnique =
+    [
+      ...new Set(
+        settings.walkFrames
+      )
+    ];
+
+  const [
+    idleLoaded,
+    walkLoaded
+  ] =
+    await Promise.all([
+      Promise.all(
+        idleUnique.map(
+          preloadImage
+        )
+      ),
+
+      Promise.all(
+        walkUnique.map(
+          preloadImage
+        )
+      )
+    ]);
+
+  const idle =
+    idleLoaded.filter(
+      Boolean
+    );
+
+  const walk =
+    walkLoaded.filter(
+      Boolean
+    );
+
+  assets = {
+    idle:
+      buildPingPong(
+        idle
+      ),
+
+    walk
+  };
+
+  console.log(
+    "Chat Pets // assets loaded",
+    {
+      idleFrames:
+        assets.idle.length,
+
+      walkFrames:
+        assets.walk.length
+    }
+  );
+}
+
+
+/* =========================================================
+   INITIALIZE
+   ========================================================= */
+
+async function initializeWidget(
+  obj
+) {
+  const isLiveReinitialize =
+    pets.length > 0;
+
+  const preservedState =
+    isLiveReinitialize
+      ? captureCurrentPetState()
+      : null;
+
+  const previousHostEnabled =
+    isLiveReinitialize
+      ? Boolean(
+          settings.hostEnabled
+        )
+      : null;
+
+  fieldData =
+    obj?.detail?.fieldData ||
+    {};
+
+  channelUsername =
+    asString(
+      obj?.detail?.channel?.username,
+      ""
+    ).trim();
+
+  if (
+    persistenceTimer
+  ) {
+    clearInterval(
+      persistenceTimer
+    );
+
+    persistenceTimer =
+      0;
+  }
+
+  parseSettings(
+    fieldData
+  );
+
+  activeConfigSignature =
+    getConfigSignature(
+      fieldData
+    );
+
+  /*
+   * When the iframe was recreated by OBS /
+   * StreamElements, pets[] is empty.
+   *
+   * The saved configuration signature lets
+   * us tell a settings change apart from a
+   * normal refresh.
+   */
+  const savedState =
+    isLiveReinitialize
+      ? null
+      : loadSavedPetState();
+
+  const savedConfigChanged =
+    Boolean(
+      savedState &&
+      savedState.configSignature &&
+      savedState.configSignature !==
+        activeConfigSignature
+    );
+
+  /*
+   * Actual refresh + Reset ON + same config:
+   * wipe the stored state.
+   */
+  if (
+    !isLiveReinitialize &&
+    settings.resetOnRefresh &&
+    !savedConfigChanged
+  ) {
+    clearSavedPetState();
+  }
+
+  /*
+   * Prevent cleanup from overwriting the
+   * persistent state with an empty list.
+   */
+  restoringState =
+    true;
+
+  try {
+    for (
+      const pet of [
+        ...pets
+      ]
+    ) {
+      removePet(
+        pet
+      );
+    }
+  } finally {
+    restoringState =
+      false;
+  }
+
+  pets = [];
+
+  userPets =
+    new Map();
+
+  petOrder = [];
+
+  tintAssignments =
+    new Map();
+
+  nextPetId = 1;
+
+  assets = {
+    idle: [],
+    walk: []
+  };
+
+  initialized =
+    false;
+
+  await preloadAssets();
+
+  if (
+    !assets.walk.length
+  ) {
+    console.warn(
+      "Chat Pets // no walk frames loaded. Viewer/host pets will remain IDLE."
+    );
+  }
+
+  if (
+    !assets.idle.length
+  ) {
+    console.warn(
+      "Chat Pets // no idle frames loaded."
+    );
+  }
+
+  initialized =
+    true;
+
+  startFrameTicker();
+
+  let restored =
+    false;
+
+  /*
+   * =======================================================
+   * LIVE REINITIALIZATION
+   * =======================================================
+   *
+   * This covers a settings update where
+   * the old DOM still exists.
+   */
+  if (
+    isLiveReinitialize &&
+    preservedState &&
+    preservedState.length
+  ) {
+    const hostWasEnabled =
+      previousHostEnabled === true;
+
+    const hostShouldLeave =
+      hostWasEnabled &&
+      !settings.hostEnabled;
+
+    restored =
+      restorePetsFromState(
+        preservedState,
+        hostWasEnabled,
+        hostShouldLeave
+      );
+  }
+
+  /*
+   * =======================================================
+   * FRESH / RECREATED WIDGET
+   * =======================================================
+   *
+   * Covers:
+   * - OBS refreshing the source
+   * - StreamElements recreating the iframe
+   * - actual page reloads
+   *
+   * A changed config means we restore.
+   */
+  if (
+    !isLiveReinitialize
+  ) {
+    restored =
+      restoreSavedPets(
+        savedConfigChanged
+      );
+  }
+
+  /*
+   * If no Host was restored and the Host
+   * setting is enabled, create a new one.
+   */
+  if (
+    !restored &&
+    settings.hostEnabled
+  ) {
+    createHostPet();
+  }
+
+  const host =
+    pets.find(
+      (pet) =>
+        pet.isHost &&
+        !pet.cancelled &&
+        !pet.leaving
+    );
+
+  if (
+    host
+  ) {
+    runHostSpeechLoop(
+      host
+    );
+  }
+
+  startPersistence();
+
+  savePetState();
+
+  console.log(
+    "Chat Pets // initialized",
+    {
+      liveReinitialize:
+        isLiveReinitialize,
+
+      resetOnRefresh:
+        settings.resetOnRefresh,
+
+      savedConfigChanged,
+
+      restored,
+
+      viewerPets:
+        userPets.size,
+
+      hostEnabled:
+        settings.hostEnabled,
+
+      tintEnabled:
+        settings.tintEnabled
+    }
+  );
+}
+
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+
+window.addEventListener(
+  "onWidgetLoad",
+  initializeWidget
+);
+
+window.addEventListener(
+  "onEventReceived",
+  function (obj) {
+    if (
+      obj?.detail?.listener ===
+      "message"
+    ) {
+      handleChatMessage(
+        obj
+      );
+    }
+  }
+);
+
+
+/* =========================================================
+   RESIZE
+   ========================================================= */
+
+window.addEventListener(
+  "resize",
+  function () {
+    const {
+      minX,
+      maxX
+    } =
+      getHorizontalBounds();
+
+    for (
+      const pet of pets
+    ) {
+      if (
+        pet.cancelled ||
+        pet.leaving ||
+        pet.movement
+      ) {
+        continue;
+      }
+
+      pet.x =
+        Math.min(
+          maxX,
+          Math.max(
+            minX,
+            pet.x
+          )
+        );
+
+      pet.element.style.left =
+        `${pet.x}px`;
+    }
+
+    savePetState();
+  }
+);
+
+
+/* =========================================================
+   EXIT
+   ========================================================= */
+
+window.addEventListener(
+  "beforeunload",
+  savePetState
+);
+
+document.addEventListener(
+  "visibilitychange",
+  function () {
+    if (
+      document.visibilityState ===
+      "hidden"
+    ) {
+      savePetState();
+    }
+  }
+);
