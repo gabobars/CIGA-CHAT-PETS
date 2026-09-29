@@ -1,1 +1,360 @@
-
+{
+  "idleFrames": {
+    "type": "image-input",
+    "label": "Idle Frames — select in order 1 → 2 → 3 → 4 → 5 → 6",
+    "multiple": true,
+    "group": "01 // PET ASSETS"
+  },
+  "walkFrames": {
+    "type": "image-input",
+    "label": "Walk Frames — select in order 1 → 2 → 3 → 4 → 5",
+    "multiple": true,
+    "group": "01 // PET ASSETS"
+  },
+  "pixelFont": {
+    "type": "googleFont",
+    "label": "Pixel Font",
+    "value": "Silkscreen",
+    "group": "02 // TEXT"
+  },
+  "petSize": {
+    "type": "number",
+    "label": "Pet Size (px)",
+    "value": 120,
+    "min": 40,
+    "max": 500,
+    "step": 1,
+    "group": "03 // PET"
+  },
+  "spriteScale": {
+    "type": "number",
+    "label": "Sprite Scale",
+    "value": 1.4,
+    "min": 0.8,
+    "max": 2.5,
+    "step": 0.05,
+    "group": "03 // PET"
+  },
+  "groundOffset": {
+    "type": "number",
+    "label": "Ground Offset (px)",
+    "value": 0,
+    "min": -200,
+    "max": 400,
+    "step": 1,
+    "group": "03 // PET"
+  },
+  "maxPets": {
+    "type": "number",
+    "label": "Maximum Viewer Pets",
+    "value": 20,
+    "min": 1,
+    "max": 20,
+    "step": 1,
+    "group": "03 // PET"
+  },
+  "baseFramesFaceRight": {
+    "type": "checkbox",
+    "label": "Base Frames Face Right",
+    "value": true,
+    "group": "03 // PET"
+  },
+  "frameMs": {
+    "type": "number",
+    "label": "Frame Duration (ms)",
+    "value": 120,
+    "min": 40,
+    "max": 500,
+    "step": 10,
+    "group": "03 // PET"
+  },
+  "idleMinSec": {
+    "type": "number",
+    "label": "Idle Minimum (sec)",
+    "value": 1.8,
+    "min": 0.5,
+    "max": 20,
+    "step": 0.1,
+    "group": "04 // MOVEMENT"
+  },
+  "idleMaxSec": {
+    "type": "number",
+    "label": "Idle Maximum (sec)",
+    "value": 4.2,
+    "min": 0.5,
+    "max": 20,
+    "step": 0.1,
+    "group": "04 // MOVEMENT"
+  },
+  "walkMinSec": {
+    "type": "number",
+    "label": "Walk Minimum (sec)",
+    "value": 2.4,
+    "min": 0.5,
+    "max": 20,
+    "step": 0.1,
+    "group": "04 // MOVEMENT"
+  },
+  "walkMaxSec": {
+    "type": "number",
+    "label": "Walk Maximum (sec)",
+    "value": 5.8,
+    "min": 0.5,
+    "max": 20,
+    "step": 0.1,
+    "group": "04 // MOVEMENT"
+  },
+  "minWalkDistancePercent": {
+    "type": "number",
+    "label": "Minimum Walk Distance (%)",
+    "value": 15,
+    "min": 1,
+    "max": 100,
+    "step": 1,
+    "group": "04 // MOVEMENT"
+  },
+  "maxWalkDistancePercent": {
+    "type": "number",
+    "label": "Maximum Walk Distance (%)",
+    "value": 50,
+    "min": 1,
+    "max": 100,
+    "step": 1,
+    "group": "04 // MOVEMENT"
+  },
+  "screenMarginPercent": {
+    "type": "number",
+    "label": "Screen Margin (%)",
+    "value": 5,
+    "min": 0,
+    "max": 25,
+    "step": 1,
+    "group": "04 // MOVEMENT"
+  },
+  "entryEffect": {
+    "type": "checkbox",
+    "label": "Entry Effect",
+    "value": true,
+    "group": "05 // ENTRY"
+  },
+  "entryDurationMs": {
+    "type": "number",
+    "label": "Entry Duration (ms)",
+    "value": 280,
+    "min": 0,
+    "max": 2000,
+    "step": 10,
+    "group": "05 // ENTRY"
+  },
+  "showMessageBubble": {
+    "type": "checkbox",
+    "label": "Show Message Bubble",
+    "value": true,
+    "group": "06 // CHAT"
+  },
+  "messageDurationSec": {
+    "type": "number",
+    "label": "Message Duration (sec)",
+    "value": 4.2,
+    "min": 0.5,
+    "max": 30,
+    "step": 0.1,
+    "group": "06 // CHAT"
+  },
+  "maxMessageCharacters": {
+    "type": "number",
+    "label": "Maximum Message Characters",
+    "value": 90,
+    "min": 1,
+    "max": 300,
+    "step": 1,
+    "group": "06 // CHAT"
+  },
+  "bubbleMaxWidth": {
+    "type": "number",
+    "label": "Bubble Maximum Width (px)",
+    "value": 320,
+    "min": 100,
+    "max": 800,
+    "step": 10,
+    "group": "06 // CHAT"
+  },
+  "bubbleFontMin": {
+    "type": "number",
+    "label": "Bubble Font Minimum",
+    "value": 12,
+    "min": 8,
+    "max": 40,
+    "step": 1,
+    "group": "06 // CHAT"
+  },
+  "bubbleFontMax": {
+    "type": "number",
+    "label": "Bubble Font Maximum",
+    "value": 19,
+    "min": 8,
+    "max": 50,
+    "step": 1,
+    "group": "06 // CHAT"
+  },
+  "nameFontSize": {
+    "type": "number",
+    "label": "Username Font Size",
+    "value": 18,
+    "min": 10,
+    "max": 40,
+    "step": 1,
+    "group": "07 // USERNAME"
+  },
+  "maxUsernameCharacters": {
+    "type": "number",
+    "label": "Maximum Username Characters",
+    "value": 18,
+    "min": 1,
+    "max": 40,
+    "step": 1,
+    "group": "07 // USERNAME"
+  },
+  "useTwitchNameColor": {
+    "type": "checkbox",
+    "label": "Use Twitch Username Color",
+    "value": true,
+    "group": "07 // USERNAME"
+  },
+  "nameColor": {
+    "type": "colorpicker",
+    "label": "Fallback Username Color",
+    "value": "#FFFFFF",
+    "group": "07 // USERNAME"
+  },
+  "nameOutlineColor": {
+    "type": "colorpicker",
+    "label": "Fallback Username Outline",
+    "value": "#000000",
+    "group": "07 // USERNAME"
+  },
+  "bubbleBackground": {
+    "type": "colorpicker",
+    "label": "Bubble Background",
+    "value": "#F3F0E6",
+    "group": "08 // BUBBLE"
+  },
+  "bubbleBorderColor": {
+    "type": "colorpicker",
+    "label": "Bubble Border",
+    "value": "#111111",
+    "group": "08 // BUBBLE"
+  },
+  "tintEnabled": {
+    "type": "checkbox",
+    "label": "Enable Viewer Tint",
+    "value": true,
+    "group": "09 // VIEWER TINT"
+  },
+  "tintIntensity": {
+    "type": "number",
+    "label": "Tint Intensity",
+    "value": 0.28,
+    "min": 0,
+    "max": 1,
+    "step": 0.01,
+    "group": "09 // VIEWER TINT"
+  },
+  "tint1": {
+    "type": "colorpicker",
+    "label": "Tint 1",
+    "value": "#D5333F",
+    "group": "09 // VIEWER TINT"
+  },
+  "tint2": {
+    "type": "colorpicker",
+    "label": "Tint 2",
+    "value": "#D38C2E",
+    "group": "09 // VIEWER TINT"
+  },
+  "tint3": {
+    "type": "colorpicker",
+    "label": "Tint 3",
+    "value": "#6FA64A",
+    "group": "09 // VIEWER TINT"
+  },
+  "tint4": {
+    "type": "colorpicker",
+    "label": "Tint 4",
+    "value": "#3F94B8",
+    "group": "09 // VIEWER TINT"
+  },
+  "tint5": {
+    "type": "colorpicker",
+    "label": "Tint 5",
+    "value": "#7354B8",
+    "group": "09 // VIEWER TINT"
+  },
+  "tint6": {
+    "type": "colorpicker",
+    "label": "Tint 6",
+    "value": "#C45494",
+    "group": "09 // VIEWER TINT"
+  },
+  "hostEnabled": {
+    "type": "checkbox",
+    "label": "Enable Host Pet",
+    "value": true,
+    "group": "10 // HOST"
+  },
+  "hostName": {
+    "type": "text",
+    "label": "Host Name",
+    "value": "HOST",
+    "group": "10 // HOST"
+  },
+  "hostNameColor": {
+    "type": "colorpicker",
+    "label": "Host Name Color",
+    "value": "#FFFFFF",
+    "group": "10 // HOST"
+  },
+  "hostLines": {
+    "type": "text",
+    "label": "Host Lines — separate lines with |",
+    "value": "Welcome to the stream!|I see you there...|Another viewer has arrived.|Interesting...|You were not supposed to find this place.",
+    "group": "10 // HOST"
+  },
+  "hostSpeechMinSec": {
+    "type": "number",
+    "label": "Host Speech Minimum Delay (sec)",
+    "value": 18,
+    "min": 1,
+    "max": 300,
+    "step": 1,
+    "group": "10 // HOST"
+  },
+  "hostSpeechMaxSec": {
+    "type": "number",
+    "label": "Host Speech Maximum Delay (sec)",
+    "value": 45,
+    "min": 1,
+    "max": 300,
+    "step": 1,
+    "group": "10 // HOST"
+  },
+  "hostBubbleDurationSec": {
+    "type": "number",
+    "label": "Host Bubble Duration (sec)",
+    "value": 6,
+    "min": 0.5,
+    "max": 60,
+    "step": 0.1,
+    "group": "10 // HOST"
+  },
+  "ignoreStreamer": {
+    "type": "checkbox",
+    "label": "Ignore Streamer Messages",
+    "value": true,
+    "group": "11 // OTHER"
+  },
+  "widgetName": {
+    "type": "hidden",
+    "value": "Chat Pets"
+  }
+}
