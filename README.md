@@ -1045,13 +1045,10 @@ CIGA-CHAT-PETS/
 ├── LICENSE
 │
 ├── widget/
-│   ├── HTML
-│   ├── CSS
-│   ├── JS
-│   └── Fields
-│
-└── preview/
-    └── preview.png
+    ├── HTML
+    ├── CSS
+    ├── JS
+    └── Fields
 ```
 
 The files inside `widget/` are designed specifically for the StreamElements Custom Widget editor.
