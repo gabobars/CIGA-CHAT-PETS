@@ -1,1 +1,337 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
 
+body {
+  font-family: monospace;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#pet-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pet {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--sprite-size, 168px);
+  height: calc(
+    var(--sprite-size, 168px) +
+    var(--name-space, 26px)
+  );
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
+.pet.host {
+  z-index: 1000;
+}
+
+.pet-core {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--sprite-size, 168px);
+  height: var(--sprite-size, 168px);
+  pointer-events: none;
+}
+
+.sprite-box {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  transform:
+    translateX(-50%)
+    scaleX(1);
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+
+.base-sprite {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  display: block;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tint-layer {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  background-color: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: color;
+
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  -webkit-mask-position: center bottom;
+  mask-position: center bottom;
+
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.pet-name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(
+    var(--sprite-size, 168px) +
+    4px
+  );
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1;
+
+  -webkit-text-stroke:
+    1.25px
+    var(--name-outline, #000000);
+
+  paint-order: stroke fill;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.pet-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(
+    var(--sprite-size, 168px) +
+    var(--name-space, 26px) +
+    14px
+  );
+  transform:
+    translateX(-50%)
+    translateY(8px);
+
+  width: 70px;
+  min-width: 70px;
+  max-width: min(80vw, 320px);
+
+  box-sizing: border-box;
+  padding: 10px 18px;
+
+  background: #f3f0e6;
+  border: 2px solid #111111;
+  border-radius: 8px;
+
+  color: #111111;
+  text-align: center;
+  line-height: 1.15;
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+
+  opacity: 0;
+  visibility: hidden;
+
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+
+  pointer-events: none;
+  z-index: 40;
+}
+
+.pet-bubble.visible {
+  opacity: 1;
+  visibility: visible;
+
+  transform:
+    translateX(-50%)
+    translateY(0);
+}
+
+.bubble-text {
+  display: inline-block;
+  max-width: 100%;
+  font-weight: 700;
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.pet-bubble::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+
+  transform:
+    translateX(-50%);
+
+  border-left:
+    9px solid transparent;
+
+  border-right:
+    9px solid transparent;
+
+  border-top:
+    10px solid #111111;
+}
+
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+
+  transform:
+    translateX(-50%);
+
+  border-left:
+    7px solid transparent;
+
+  border-right:
+    7px solid transparent;
+
+  border-top:
+    8px solid #f3f0e6;
+}
+
+.pet.moving {
+  will-change: left;
+}
+
+
+/* =========================================================
+   ENTRY
+   ========================================================= */
+
+.pet.entering {
+  animation:
+    pet-entry
+    var(--entry-duration, 280ms)
+    cubic-bezier(
+      0.2,
+      1.35,
+      0.4,
+      1
+    );
+}
+
+@keyframes pet-entry {
+  0% {
+    opacity: 0;
+
+    transform:
+      translateX(-50%)
+      translateY(18px)
+      scale(0.78);
+  }
+
+  60% {
+    opacity: 1;
+
+    transform:
+      translateX(-50%)
+      translateY(-3px)
+      scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      translateX(-50%)
+      translateY(0)
+      scale(1);
+  }
+}
+
+
+/* =========================================================
+   LEAVE
+   ========================================================= */
+
+.pet.leaving {
+  animation:
+    pet-leave
+    var(--entry-duration, 280ms)
+    cubic-bezier(
+      0.2,
+      1.35,
+      0.4,
+      1
+    )
+    forwards;
+}
+
+@keyframes pet-leave {
+  0% {
+    opacity: 1;
+
+    transform:
+      translateX(-50%)
+      translateY(0)
+      scale(1);
+  }
+
+  40% {
+    opacity: 1;
+
+    transform:
+      translateX(-50%)
+      translateY(-3px)
+      scale(1.04);
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translateX(-50%)
+      translateY(18px)
+      scale(0.78);
+  }
+}
